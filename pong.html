@@ -1,154 +1,203 @@
 <html>
-<head>
-<title>Pong</title>
-</head>
-<style>
-/* https://codepen.io/anon/pen/QzpxQv */
-html, body {
-  margin: 0;
-  padding: 0;
-}
 
-body {
-  overscroll-behavior-y: none;
-}
 
-canvas {
-  background: #000;
-  height: 100%;
-  width: 100%;
-  display: block;
-  margin: 0;
-  padding: 0;
-}
-</style>
-<body>
-<canvas id="canvas" />
-
+<canvas id="gameCanvas" width="800" height="600"></canvas>
 <script>
-var canvas = document.getElementById("canvas")
-var ctx = canvas.getContext("2d")
-var width
-var height
-var audio = new Audio('pong.ogg');
 
-var resize = function() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-  canvas.width = width
-  canvas.height = height
-}
-window.onresize = resize
-resize()
+var canvas; 
+var canvasContext;
+var ballX = 50;
+var ballY = 50;
+var ballSpeedX = 10; //positive = go right, negative = go left
+var ballSpeedY = 4; //positive goes down
 
-ctx.fillStyle = 'red'
+const WINNING_SCORE = 3;
+var player1Score = 0;
+var player2Score = 0;
 
-var state = {
-  x: width / 2,
-  y: height / 2,
-  xmotion: 2,
-  ymotion: 2,
-  ballSize: 20,
-  paddleWidth: 20,
-  paddleHeight: 100,
-  leftPaddle: (height / 2) - (100 / 2),
-  rightPaddle: (height / 2) - (100 / 2),
-  score: 0,
-}
+var showingWinScreen = false;
 
-function update(progress) {
-  // Check for paddle hit
-  checkForHit();
-  if( state.y >= height - state.ballSize ) {
-  	state.ymotion = -state.ymotion;
-  }
-  if( state.y <= 0 ) {
-  	state.ymotion = -state.ymotion;
-  }
+var paddle1Y = 250;
+var paddle2Y = 250;
+const PADDLE_HEIGHT = 100;
+const PADDLE_THICKNESS = 10;
 
-  // If no hit, then mark score
-
-  state.x = state.x + state.xmotion;
-  state.y = state.y + state.ymotion;
+//next line; call the function every time the mouse moves, and give mouse xy coordinates
+function calculateMousePos(evt) {
+	//next line; getting canvas's bounding client rectangle; area of black rectangle
+	var rect = canvas.getBoundingClientRect();
+	//next line; handle on html document
+	var root = document.documentElement;
+	//next line; getting position for mouseX and mouseY. accounting for where on the page is position of the canvas from top and left, and how far we have scrolled to figure out where on the canvas we've moved. subtracting = disregarding
+	var mouseX = evt.clientX - rect.left - root.scrollLeft;
+	var mouseY = evt.clientY - rect.top - root.scrollTop;
+	return {
+		x:mouseX,
+		y:mouseY
+	};
 }
 
-function checkForHit() {
-  // Right paddle check
-  if( state.x >= width - state.paddleWidth - 5 - state.ballSize &&
-  	  ( state.y >= state.rightPaddle &&
-  	  	state.y <= state.rightPaddle + state.paddleHeight
-  	  )) {
-  	state.xmotion = -state.xmotion * 1.2;
-    changeY();
-    audio.play();
-    state.score += 1;
-  }
-  // Left paddle check
-  if( state.x <= state.paddleWidth + 5 &&
-  	  ( state.y >= state.leftPaddle &&
-  	  	state.y <= state.leftPaddle + state.paddleHeight
-  	  )) {
-  	state.xmotion = -state.xmotion * 1.2;
-    // Change ymotion
-    changeY();
-    audio.play();
-    state.score += 1;
-  }
+function handleMouseClick(evt) {
+	if(showingWinScreen) {
+		player1Score = 0;
+		player2Score = 0;
+		showingWinScreen = false;
+	}
 }
 
-function changeY() {
-  var midPaddle = state.paddleHeight / 2;
-  var diff = state.y - state.leftPaddle;
-  var ballLocation = diff - midPaddle;
-  var percent = ballLocation / midPaddle;
-  state.ymotion = Math.abs(state.xmotion) * percent * 1.2;
+//code won't activate til page is done loading
+window.onload = function() {
+	console.log("Hello, World!");
+	canvas = document.getElementById('gameCanvas'); // previous line gives canvas the HTML element ID of id=gameCanvas
+	canvasContext = canvas.getContext('2d');
+	
+	//temporary local variable
+	var framesPerSecond = 30;
+	
+	
+	// (millisecond) at frequency of 30 frames per second, will call drawEverything function
+	setInterval(function() {
+	//defining functions inline, can't be called anywhere else
+		moveEverything();
+		drawEverything();
+	}, 1000/framesPerSecond );
+	
+	canvas.addEventListener('mousedown', handleMouseClick);
+	
+	canvas.addEventListener('mousemove',
+		function(evt){
+			var mousePos = calculateMousePos(evt);
+			paddle1Y = mousePos.y-(PADDLE_HEIGHT/2); //subtract 1/2 paddle height to get paddle's center locked on cursor
+			});
+}
+	
+function ballReset() {
+
+	if(player1Score >= WINNING_SCORE || player2Score >= WINNING_SCORE) {
+		showingWinScreen = true;
+	}
+
+	//next line; direction of ball flips after reset
+	ballSpeedX = -ballSpeedX;
+	ballX = canvas.width/2;
+	ballY = canvas.height/2;
+}	
+
+function computerMovement() {
+	var paddle2YCenter = paddle2Y + (PADDLE_HEIGHT/2);
+	if(paddle2YCenter < ballY-35) {
+		paddle2Y += 6;
+	} else if(paddle2YCenter > ballY+35) {
+		paddle2Y -= 6;
+	}
 }
 
-function draw() {
-  ctx.clearRect(0, 0, width, height);
+	
+function moveEverything() {
+	if(showingWinScreen){
+		return;
+	}
+	
+	computerMovement();
 
-  // Draw the ball
-  ctx.fillRect(state.x, state.y, 20, 20);
+	ballX = ballX + ballSpeedX; 
+	ballY = ballY + ballSpeedY; 
+	
+	//following lines; if ball reaches edge of canvas, ball will flip its direction
+	if(ballX > canvas.width) {
+		if(ballY > paddle2Y &&
+			ballY < paddle2Y+PADDLE_HEIGHT) {
+				ballSpeedX = -ballSpeedX; //reflect the ball if touches paddle
+				
+				var deltaY = ballY-(paddle2Y+PADDLE_HEIGHT/2);
+				
+				ballSpeedY = deltaY * 0.35;
+			} else {
+				player1Score++; //must be BEFORE ballReset
+				ballReset();
+				
+			}
+	}
+	if(ballX < 0) {
+		if(ballY > paddle1Y &&
+			ballY < paddle1Y+PADDLE_HEIGHT) {
+				ballSpeedX = -ballSpeedX; //reflect the ball if touches paddle
+				
+				var deltaY = ballY-(paddle1Y+PADDLE_HEIGHT/2);
+				
+				ballSpeedY = deltaY * 0.35;
+				
+			} else {
+				player2Score++; //must be BEFORE ballReset
+				ballReset();
+				
+			}
+	}
+	if(ballY > canvas.height) {
+		ballSpeedY = -ballSpeedY;
+	}
+	if(ballY < 0) {
+		ballSpeedY = -ballSpeedY;
+	}
+}	
+function drawNet () {
+	for(var i=0;i<canvas.height; i+=40) {
+		colorRect(canvas.width/2-1,i,2,20,'white');
+	}
+}	
+function drawEverything() {
 
-  // Left Paddle
-  ctx.fillRect(5, state.leftPaddle, state.paddleWidth, state.paddleHeight);
+	//console log proves function was called
+	console.log(ballX);
+	//next line blanks out screen w/ black
+	colorRect(0,0,canvas.width,canvas.height, 'black');
+	
+	if(showingWinScreen){
+		canvasContext.fillStyle = 'white';
+		
+		if(player1Score >= WINNING_SCORE) {
+			canvasContext.fillText("Left Player Won!", 350, 200);
+		} else if(player2Score >= WINNING_SCORE) {
+			canvasContext.fillText("Right Player Won!", 350, 200);
+		}
+	
+		canvasContext.fillText("Click to continue", 350, 500);
+		return;
+	}
+	
+	drawNet();
+	
+	//next line = left player paddle
+	colorRect(0,paddle1Y,PADDLE_THICKNESS,PADDLE_HEIGHT, 'white');
+	//next line = right player paddle
+	colorRect(canvas.width-PADDLE_THICKNESS,paddle2Y,PADDLE_THICKNESS,PADDLE_HEIGHT, 'white');
+	//next line draws the ball
+	colorCircle(ballX, ballY, 10, 'white');
+	
+	canvasContext.fillText(player1Score, 100,100);
+	canvasContext.fillText(
+	
+	player2Score, canvas.width-100,100);
+	
+}
+	
+	
 
-  // Right Paddle
-  ctx.fillRect(width - 25, state.rightPaddle, state.paddleWidth, state.paddleHeight);
-
-  ctx.font = '96px consolas';
-  ctx.fillText(state.score, 300, 100);
-  //ctx.fillText(state.leftPaddle, 50, 150);
+function colorCircle(centerX, centerY, radius, drawColor) {
+	canvasContext.fillStyle = 'drawColor';
+	//next line; let us define shape to fill in
+	canvasContext.beginPath(); 
+	//next line; no circle function. (x & y from center of circle, radius, angle & radians around circle aka circumference formula C = 2 pi R, draw arc from clockwise or counter clockwise)
+	canvasContext.arc(centerX, centerY, radius, 0,Math.PI*2, true);
+	canvasContext.fill();
 }
 
-function loop(timestamp) {
-  var progress = (timestamp - lastRender)
-
-  update(progress)
-  draw()
-  
-  lastRender = timestamp
-  window.requestAnimationFrame(loop)
+//compresses color + coordinates + dimensions to 1 line
+function colorRect(leftX,topY,width,height, drawColor){
+	canvasContext.fillStyle = drawColor;
+	canvasContext.fillRect(leftX,topY,width,height);
 }
-
-canvas.addEventListener('wheel',function(event) {
-  state.leftPaddle += event.wheelDeltaY;
-  
-  if( state.leftPaddle < 0 ) {
-  	state.leftPaddle = 0;
-  }
-  
-  if( state.leftPaddle >= height - state.paddleHeight ) {
-  	state.leftPaddle = height - state.paddleHeight;
-  }
-
-  state.rightPaddle = state.leftPaddle;
-  return false; 
-}, false);
-
-var lastRender = 0
-window.requestAnimationFrame(loop)
-
 </script>
-</body>
+
+
 </html>
