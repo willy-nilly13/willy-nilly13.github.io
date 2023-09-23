@@ -1,97 +1,154 @@
-<!DOCTYPE html> 
 <html>
 <head>
-  <title>Pong!</title> 
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/> 
-  <link href="pong.css" media="screen, print" rel="stylesheet" type="text/css" /> 
-</head> 
- 
-<body> 
+<title>Pong</title>
+</head>
+<style>
+/* https://codepen.io/anon/pen/QzpxQv */
+html, body {
+  margin: 0;
+  padding: 0;
+}
 
-  <div id="sidebar">
+body {
+  overscroll-behavior-y: none;
+}
 
-    <h2>This is Pong!</h2>
+canvas {
+  background: #000;
+  height: 100%;
+  width: 100%;
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+</style>
+<body>
+<canvas id="canvas" />
 
-    <ul class='parts'>
-      <li><a href='/' class='selected'>Full Game</a></li>
-      <li><a href='/part1'><i>game runner</i> - Part 1</a></li>
-      <li><a href='/part2'><i>bouncing ball</i> - Part 2</a></li>
-      <li><a href='/part3'><i>game loop</i> - Part 3</a></li>
-      <li><a href='/part4'><i>collision detection</i> - Part 4</a></li>
-      <li><a href='/part5'><i>computer AI</i> - Part 5</a></li>
-    </ul>
+<script>
+var canvas = document.getElementById("canvas")
+var ctx = canvas.getContext("2d")
+var width
+var height
+var audio = new Audio('pong.ogg');
 
-    <div class='description'>
-      <p>
-        This is a javascript version of Pong.
-      </p>
-      <p>
-        Press <b>1</b> for a single player game.<br>
-        Press <b>2</b> for a double player game.<br>
-        Press <b>0</b> to watch the computer play itself.
-      </p>
-      <p>
-        Player 1 moves using the <b>Q</b> and <b>A</b> keys.<br>
-        Player 2 moves using the <b>P</b> and <b>L</b> keys.
-      </p>
-      <p>
-        <b>Esc</b> can be used to abandon a game.
-      </p>
-    </div>
+var resize = function() {
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width
+  canvas.height = height
+}
+window.onresize = resize
+resize()
 
-    <div class='settings'>
-      <label for='sound'>sound: </label>
-      <input type='checkbox' id='sound'>
-    </div>
+ctx.fillStyle = 'red'
 
-    <div class='settings'>
-      <label for='stats'>stats: </label>
-      <input type='checkbox' id='stats' checked>
-    </div>
+var state = {
+  x: width / 2,
+  y: height / 2,
+  xmotion: 2,
+  ymotion: 2,
+  ballSize: 20,
+  paddleWidth: 20,
+  paddleHeight: 100,
+  leftPaddle: (height / 2) - (100 / 2),
+  rightPaddle: (height / 2) - (100 / 2),
+  score: 0,
+}
 
-    <div class='settings'>
-      <label for='footprints'>footprints: </label>
-      <input type='checkbox' id='footprints'>
-    </div>
+function update(progress) {
+  // Check for paddle hit
+  checkForHit();
+  if( state.y >= height - state.ballSize ) {
+  	state.ymotion = -state.ymotion;
+  }
+  if( state.y <= 0 ) {
+  	state.ymotion = -state.ymotion;
+  }
 
-    <div class='settings'>
-      <label for='predictions'>predictions: </label>
-      <input type='checkbox' id='predictions'>
-    </div>
+  // If no hit, then mark score
 
-  </div>
+  state.x = state.x + state.xmotion;
+  state.y = state.y + state.ymotion;
+}
 
-  <canvas id="game">
-    <div id="unsupported">
-      Sorry, this example cannot be run because your browser does not support the &lt;canvas&gt; element
-    </div>
-  </canvas>
+function checkForHit() {
+  // Right paddle check
+  if( state.x >= width - state.paddleWidth - 5 - state.ballSize &&
+  	  ( state.y >= state.rightPaddle &&
+  	  	state.y <= state.rightPaddle + state.paddleHeight
+  	  )) {
+  	state.xmotion = -state.xmotion * 1.2;
+    changeY();
+    audio.play();
+    state.score += 1;
+  }
+  // Left paddle check
+  if( state.x <= state.paddleWidth + 5 &&
+  	  ( state.y >= state.leftPaddle &&
+  	  	state.y <= state.leftPaddle + state.paddleHeight
+  	  )) {
+  	state.xmotion = -state.xmotion * 1.2;
+    // Change ymotion
+    changeY();
+    audio.play();
+    state.score += 1;
+  }
+}
 
-  <script src="game.js" type="text/javascript"></script> 
-  <script src="pong.js" type="text/javascript"></script>
-  <script type="text/javascript">
-  Game.ready(function() {
+function changeY() {
+  var midPaddle = state.paddleHeight / 2;
+  var diff = state.y - state.leftPaddle;
+  var ballLocation = diff - midPaddle;
+  var percent = ballLocation / midPaddle;
+  state.ymotion = Math.abs(state.xmotion) * percent * 1.2;
+}
 
-    var size        = document.getElementById('size');
-    var sound       = document.getElementById('sound');
-    var stats       = document.getElementById('stats');
-    var footprints  = document.getElementById('footprints');
-    var predictions = document.getElementById('predictions');
+function draw() {
+  ctx.clearRect(0, 0, width, height);
 
-    var pong = Game.start('game', Pong, {
-      sound:       sound.checked,
-      stats:       stats.checked,
-      footprints:  footprints.checked,
-      predictions: predictions.checked
-    });
+  // Draw the ball
+  ctx.fillRect(state.x, state.y, 20, 20);
 
-    Game.addEvent(sound,       'change', function() { pong.enableSound(sound.checked);           });
-    Game.addEvent(stats,       'change', function() { pong.showStats(stats.checked);             });
-    Game.addEvent(footprints,  'change', function() { pong.showFootprints(footprints.checked);   });
-    Game.addEvent(predictions, 'change', function() { pong.showPredictions(predictions.checked); });
+  // Left Paddle
+  ctx.fillRect(5, state.leftPaddle, state.paddleWidth, state.paddleHeight);
 
-  });
-  </script>
+  // Right Paddle
+  ctx.fillRect(width - 25, state.rightPaddle, state.paddleWidth, state.paddleHeight);
 
-</body> 
+  ctx.font = '96px consolas';
+  ctx.fillText(state.score, 300, 100);
+  //ctx.fillText(state.leftPaddle, 50, 150);
+}
+
+function loop(timestamp) {
+  var progress = (timestamp - lastRender)
+
+  update(progress)
+  draw()
+  
+  lastRender = timestamp
+  window.requestAnimationFrame(loop)
+}
+
+canvas.addEventListener('wheel',function(event) {
+  state.leftPaddle += event.wheelDeltaY;
+  
+  if( state.leftPaddle < 0 ) {
+  	state.leftPaddle = 0;
+  }
+  
+  if( state.leftPaddle >= height - state.paddleHeight ) {
+  	state.leftPaddle = height - state.paddleHeight;
+  }
+
+  state.rightPaddle = state.leftPaddle;
+  return false; 
+}, false);
+
+var lastRender = 0
+window.requestAnimationFrame(loop)
+
+</script>
+</body>
 </html>
